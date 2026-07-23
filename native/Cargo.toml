@@ -1,0 +1,21 @@
+[package]
+name = "lichviet_core"
+version = "1.5.1"
+edition = "2021"
+publish = false
+
+[lib]
+name = "lichviet_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = { version = "=0.21.1", default-features = false }
+
+[profile.release]
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+overflow-checks = true
+debug = false
+incremental = false
