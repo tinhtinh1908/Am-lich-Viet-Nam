@@ -1,0 +1,84 @@
+plugins {
+    id 'com.android.application' version '8.7.3'
+}
+
+def rustOutput = layout.buildDirectory.dir('rustJniLibs')
+
+android {
+    namespace 'com.dtinh.lichviet'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.dtinh.lichviet'
+        minSdk 30
+        targetSdk 34
+        versionCode 27
+        versionName '1.8.4'
+        multiDexEnabled false
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+        }
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java.srcDirs = ['src']
+            res.srcDirs = ['res']
+            jniLibs.srcDirs = [rustOutput.get().asFile]
+        }
+        test.java.srcDirs = ['tests']
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            debuggable false
+            jniDebuggable false
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+        }
+        resources.excludes += ['META-INF/**', '**/*.kotlin_metadata']
+    }
+
+    lint {
+        abortOnError true
+        checkReleaseBuilds true
+        warningsAsErrors false
+    }
+}
+
+tasks.register('cargoBuildRelease', Exec) {
+    workingDir projectDir
+    inputs.files(fileTree('native/src'), file('native/Cargo.toml'))
+    outputs.dir(rustOutput)
+    doFirst { rustOutput.get().asFile.mkdirs() }
+    environment 'CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS',
+            '-C link-arg=-Wl,-z,max-page-size=16384'
+    environment 'CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_RUSTFLAGS',
+            '-C link-arg=-Wl,-z,max-page-size=16384'
+    environment 'CARGO_TARGET_X86_64_LINUX_ANDROID_RUSTFLAGS',
+            '-C link-arg=-Wl,-z,max-page-size=16384'
+    commandLine 'cargo', 'ndk',
+            '-t', 'arm64-v8a',
+            '-t', 'armeabi-v7a',
+            '-t', 'x86_64',
+            '--platform', '30',
+            '-o', rustOutput.get().asFile.absolutePath,
+            'build', '--manifest-path', 'native/Cargo.toml', '--release', '--locked'
+}
+
+tasks.named('preBuild').configure { dependsOn tasks.named('cargoBuildRelease') }
